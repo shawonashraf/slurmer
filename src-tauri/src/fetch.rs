@@ -20,7 +20,11 @@ pub async fn fetch_jobs(host: &str, user: &str) -> Result<Vec<Job>, FetchError> 
 
 /// Same as `fetch_jobs` but with an explicit program, so tests can point it
 /// at a fake ssh script.
-pub async fn fetch_jobs_with(program: &str, host: &str, user: &str) -> Result<Vec<Job>, FetchError> {
+pub async fn fetch_jobs_with(
+    program: &str,
+    host: &str,
+    user: &str,
+) -> Result<Vec<Job>, FetchError> {
     let mut cmd = Command::new(program);
     cmd.args(build_ssh_args(host, user))
         .stdin(Stdio::null())
@@ -77,7 +81,9 @@ mod tests {
             dir.path(),
             "printf '1|p|n|RUNNING|1:00|1|node1|2:00|4|8G\\n2|p|m|PENDING|0:00|1|(Priority)|2:00|4|8G\\n'",
         );
-        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").await.unwrap();
+        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
+            .await
+            .unwrap();
         assert_eq!(jobs.len(), 2);
         assert_eq!(jobs[0].id, "1");
         assert_eq!(jobs[1].state, "PENDING");
@@ -87,15 +93,22 @@ mod tests {
     async fn success_with_empty_stdout_is_no_jobs() {
         let dir = tempfile::tempdir().unwrap();
         let ssh = fake_ssh(dir.path(), "exit 0");
-        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").await.unwrap();
+        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
+            .await
+            .unwrap();
         assert!(jobs.is_empty());
     }
 
     #[tokio::test]
     async fn nonzero_exit_reports_trimmed_stderr() {
         let dir = tempfile::tempdir().unwrap();
-        let ssh = fake_ssh(dir.path(), "echo '  Permission denied (publickey).  ' >&2; exit 255");
-        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").await.unwrap_err();
+        let ssh = fake_ssh(
+            dir.path(),
+            "echo '  Permission denied (publickey).  ' >&2; exit 255",
+        );
+        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
+            .await
+            .unwrap_err();
         assert_eq!(err.message, "Permission denied (publickey).");
     }
 
@@ -103,14 +116,23 @@ mod tests {
     async fn nonzero_exit_with_empty_stderr_reports_status() {
         let dir = tempfile::tempdir().unwrap();
         let ssh = fake_ssh(dir.path(), "exit 3");
-        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").await.unwrap_err();
+        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
+            .await
+            .unwrap_err();
         assert_eq!(err.message, "ssh exited with status 3");
     }
 
     #[tokio::test]
     async fn missing_program_is_reported() {
-        let err = fetch_jobs_with("/nonexistent/dir/ssh", "h", "u").await.unwrap_err();
-        assert!(err.message.starts_with("Could not run /nonexistent/dir/ssh:"), "{}", err.message);
+        let err = fetch_jobs_with("/nonexistent/dir/ssh", "h", "u")
+            .await
+            .unwrap_err();
+        assert!(
+            err.message
+                .starts_with("Could not run /nonexistent/dir/ssh:"),
+            "{}",
+            err.message
+        );
     }
 
     #[tokio::test]
@@ -121,7 +143,9 @@ mod tests {
             dir.path(),
             &format!("printf '%s\\n' \"$@\" > '{}'", out.display()),
         );
-        fetch_jobs_with(ssh.to_str().unwrap(), "myhost", "alice").await.unwrap();
+        fetch_jobs_with(ssh.to_str().unwrap(), "myhost", "alice")
+            .await
+            .unwrap();
         let recorded: Vec<String> = std::fs::read_to_string(&out)
             .unwrap()
             .lines()
@@ -138,7 +162,9 @@ mod tests {
             dir.path(),
             "i=0; while [ $i -lt 4096 ]; do printf '%064d\\n' $i >&2; i=$((i+1)); done; exit 1",
         );
-        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").await.unwrap_err();
+        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
+            .await
+            .unwrap_err();
         assert!(err.message.len() > 200_000);
     }
 }

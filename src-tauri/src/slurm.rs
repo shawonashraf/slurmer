@@ -111,7 +111,10 @@ mod tests {
     #[test]
     fn preserves_untruncated_names() {
         let jobs = parse_squeue_output(SAMPLE);
-        assert_eq!(jobs[1].name, "a-very-long-job-name-that-squeue-would-truncate");
+        assert_eq!(
+            jobs[1].name,
+            "a-very-long-job-name-that-squeue-would-truncate"
+        );
     }
 
     #[test]
@@ -144,9 +147,15 @@ mod tests {
         assert_eq!(
             args,
             vec![
-                "-o", "User=alice",
+                "-o",
+                "User=alice",
                 "Snellius-Large",
-                "squeue", "--noheader", "-u", "'alice'", "-o", "'%i|%P|%j|%T|%M|%D|%R|%l|%C|%m'",
+                "squeue",
+                "--noheader",
+                "-u",
+                "'alice'",
+                "-o",
+                "'%i|%P|%j|%T|%M|%D|%R|%l|%C|%m'",
             ]
         );
     }
@@ -158,7 +167,11 @@ mod tests {
             args,
             vec![
                 "login.example.org",
-                "squeue", "--noheader", "--me", "-o", "'%i|%P|%j|%T|%M|%D|%R|%l|%C|%m'",
+                "squeue",
+                "--noheader",
+                "--me",
+                "-o",
+                "'%i|%P|%j|%T|%M|%D|%R|%l|%C|%m'",
             ]
         );
     }

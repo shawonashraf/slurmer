@@ -88,10 +88,12 @@ impl ClustersFile {
                     .map(|p| p.join(&temp_name))
                     .unwrap_or_else(|| temp_name.into())
             }
-            None => return Err(ConfigError::Io(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "path has no file name",
-            ))),
+            None => {
+                return Err(ConfigError::Io(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "path has no file name",
+                )))
+            }
         };
 
         std::fs::write(&temp_path, json)?;
