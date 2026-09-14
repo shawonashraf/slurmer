@@ -1,4 +1,5 @@
 mod slurm;
+mod ssh_config;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
