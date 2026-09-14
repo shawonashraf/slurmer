@@ -1,3 +1,4 @@
+mod config;
 mod slurm;
 mod ssh_config;
 
