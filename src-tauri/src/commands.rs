@@ -62,6 +62,9 @@ pub fn validate_input(input: ClusterInput) -> Result<Cluster, String> {
     if name.is_empty() || host.is_empty() {
         return Err("Name and host are required".to_string());
     }
+    if host.starts_with('-') {
+        return Err("Host must not start with '-'".to_string());
+    }
     Ok(Cluster {
         id: input.id.unwrap_or_else(Uuid::new_v4),
         name,
@@ -232,6 +235,18 @@ mod tests {
             user: "".into(),
         });
         assert!(missing_host.is_err());
+    }
+
+    #[test]
+    fn validate_input_rejects_option_like_host() {
+        let err = validate_input(ClusterInput {
+            id: None,
+            name: "n".into(),
+            host: "  -oProxyCommand=touch /tmp/pwn".into(),
+            user: "".into(),
+        })
+        .unwrap_err();
+        assert_eq!(err, "Host must not start with '-'".to_string());
     }
 
     #[test]

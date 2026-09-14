@@ -13,6 +13,9 @@ Tauri v2 and Svelte 5.
   `ssh -o User=<user> <host> squeue --noheader -u '<user>' -o '<format>'`.
   The host is used verbatim, so aliases from `~/.ssh/config` apply, including
   `ControlMaster` sockets and any 2FA session you already opened in a terminal.
+- When User is left blank, the app omits `-o User=` and runs `squeue --me`
+  instead of `-u`, so the alias's own `User` line applies; `--me` needs
+  Slurm 20.02 or newer.
 - Output is parsed into a table with colour-coded job states.
 
 If ssh needs an interactive login, open a terminal and run `ssh <host>` once,

@@ -16,7 +16,9 @@
   let error = $state<string | null>(null);
 
   const isEdit = $derived(cluster !== null);
-  const canSave = $derived(name.trim() !== "" && host.trim() !== "" && !saving);
+  const canSave = $derived(
+    name.trim() !== "" && host.trim() !== "" && !host.trim().startsWith("-") && !saving,
+  );
 
   function applyImport() {
     const h = app.sshHosts.find((x) => x.alias === importAlias);
@@ -55,7 +57,7 @@
 
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") onClose();
-    if (e.key === "Enter" && !(e.target instanceof HTMLSelectElement)) {
+    if (e.key === "Enter" && e.target instanceof HTMLInputElement) {
       e.preventDefault();
       save();
     }

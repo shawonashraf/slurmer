@@ -4,7 +4,7 @@
   import Sidebar from "./lib/Sidebar.svelte";
   import MainPanel from "./lib/MainPanel.svelte";
   import ClusterForm from "./lib/ClusterForm.svelte";
-  import type { Cluster } from "./lib/api";
+  import { errorMessage, type Cluster } from "./lib/api";
 
   let formOpen = $state(false);
   let editing = $state<Cluster | null>(null);
@@ -23,7 +23,10 @@
   }
 
   onMount(() => {
-    app.boot();
+    app.boot().catch((e) => {
+      app.loadError = errorMessage(e);
+      app.booted = true;
+    });
   });
 </script>
 

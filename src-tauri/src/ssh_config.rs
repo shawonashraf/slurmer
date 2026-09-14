@@ -34,6 +34,23 @@ fn is_single_alias(value: &str) -> bool {
         && !value.starts_with('!')
 }
 
+/// Pushes `host`, or, if a host with the same alias was already collected,
+/// merges into that existing entry instead: the existing entry keeps its
+/// position and only its still-`None` fields are filled in, so the first
+/// block's values win, matching ssh's first-obtained-value rule.
+fn push_or_merge(hosts: &mut Vec<SshHost>, host: SshHost) {
+    if let Some(existing) = hosts.iter_mut().find(|h| h.alias == host.alias) {
+        if existing.hostname.is_none() {
+            existing.hostname = host.hostname;
+        }
+        if existing.user.is_none() {
+            existing.user = host.user;
+        }
+    } else {
+        hosts.push(host);
+    }
+}
+
 pub fn parse_ssh_config(contents: &str) -> Vec<SshHost> {
     let mut hosts: Vec<SshHost> = Vec::new();
     let mut current: Option<SshHost> = None;
@@ -51,7 +68,7 @@ pub fn parse_ssh_config(contents: &str) -> Vec<SshHost> {
         match key.as_str() {
             "host" => {
                 if let Some(done) = current.take() {
-                    hosts.push(done);
+                    push_or_merge(&mut hosts, done);
                 }
                 if is_single_alias(value) {
                     current = Some(SshHost {
@@ -63,7 +80,7 @@ pub fn parse_ssh_config(contents: &str) -> Vec<SshHost> {
             }
             "match" => {
                 if let Some(done) = current.take() {
-                    hosts.push(done);
+                    push_or_merge(&mut hosts, done);
                 }
             }
             "hostname" => {
@@ -80,7 +97,7 @@ pub fn parse_ssh_config(contents: &str) -> Vec<SshHost> {
         }
     }
     if let Some(done) = current.take() {
-        hosts.push(done);
+        push_or_merge(&mut hosts, done);
     }
     hosts
 }
@@ -189,5 +206,22 @@ Host=eqform
         let hosts = load_ssh_hosts(&path);
         assert_eq!(hosts.len(), 1);
         assert_eq!(hosts[0].alias, "x");
+    }
+
+    #[test]
+    fn duplicate_host_blocks_are_merged_first_wins() {
+        let hosts = parse_ssh_config(
+            "\
+Host foo
+  User first
+Host foo
+  HostName foo.example.org
+  User second
+",
+        );
+        let foos: Vec<&SshHost> = hosts.iter().filter(|h| h.alias == "foo").collect();
+        assert_eq!(foos.len(), 1);
+        assert_eq!(foos[0].user.as_deref(), Some("first"));
+        assert_eq!(foos[0].hostname.as_deref(), Some("foo.example.org"));
     }
 }

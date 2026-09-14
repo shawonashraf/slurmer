@@ -62,6 +62,7 @@ pub fn build_ssh_args(host: &str, user: &str) -> Vec<String> {
         args.push("-o".into());
         args.push(format!("User={user}"));
     }
+    args.push("--".into());
     args.push(host.to_string());
     args.push("squeue".into());
     args.push("--noheader".into());
@@ -149,6 +150,7 @@ mod tests {
             vec![
                 "-o",
                 "User=alice",
+                "--",
                 "Snellius-Large",
                 "squeue",
                 "--noheader",
@@ -166,6 +168,7 @@ mod tests {
         assert_eq!(
             args,
             vec![
+                "--",
                 "login.example.org",
                 "squeue",
                 "--noheader",
@@ -180,6 +183,15 @@ mod tests {
     fn build_ssh_args_quotes_user_with_quote() {
         let args = build_ssh_args("h", "o'b");
         assert_eq!(args[1], "User=o'b");
-        assert_eq!(args[6], "'o'\\''b'");
+        assert_eq!(args[7], "'o'\\''b'");
+    }
+
+    #[test]
+    fn build_ssh_args_separates_options_from_host() {
+        let with_user = build_ssh_args("myhost", "alice");
+        assert_eq!(with_user[2], "--");
+
+        let without_user = build_ssh_args("myhost", "");
+        assert_eq!(without_user[0], "--");
     }
 }

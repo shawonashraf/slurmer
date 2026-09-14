@@ -12,6 +12,7 @@
   const subtitle = $derived.by(() => {
     if (isAll) {
       const n = app.clusters.length;
+      if (n === 0) return "";
       return n === 1 ? "1 cluster" : `${n} clusters`;
     }
     if (!selected) return "";
@@ -36,6 +37,9 @@
   const anyFetched = $derived(groups.some((g) => g.fetched));
   const singleEmpty = $derived(
     !isAll && selected ? app.fetched[selected.id] && (app.jobs[selected.id]?.length ?? 0) === 0 && !singleError : false,
+  );
+  const singleErrorNoRows = $derived(
+    !isAll && !!selected && !!singleError && (app.jobs[selected.id]?.length ?? 0) === 0,
   );
 </script>
 
@@ -76,7 +80,9 @@
   {/if}
 
   <div class="content" class:dimmed={busy}>
-    {#if app.clusters.length === 0}
+    {#if !app.booted}
+      <div class="empty"><span class="spinner"></span></div>
+    {:else if app.clusters.length === 0}
       <div class="empty">
         <h2>No clusters yet</h2>
         <p>Add a cluster to start tracking its Slurm queue.</p>
@@ -87,6 +93,8 @@
         <h2>Press Refresh to load jobs</h2>
         <p>{isAll ? "Every cluster is refreshed in parallel." : subtitle}</p>
       </div>
+    {:else if singleErrorNoRows}
+      <div class="empty"></div>
     {:else if singleEmpty}
       <div class="empty">
         <h2>No jobs in the queue</h2>

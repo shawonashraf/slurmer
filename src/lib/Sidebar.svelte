@@ -22,7 +22,7 @@
 
     <div class="section">Clusters</div>
 
-    {#if app.clusters.length === 0}
+    {#if app.booted && app.clusters.length === 0}
       <div class="none">No clusters yet</div>
     {/if}
 
