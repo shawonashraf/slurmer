@@ -29,7 +29,7 @@ Standard Tauri v2 layout: `src-tauri/` for Rust, `src/` for Svelte.
 |---|---|
 | `config.rs` | `Cluster { id: Uuid, name, host, user }` and `ClustersFile { clusters: Vec<Cluster>, selected: Option<Selection> }`. Load/save `clusters.json` in the platform config dir (via the `directories` crate, e.g. `~/Library/Application Support/slurmer/clusters.json` on macOS). Missing file → empty list. |
 | `ssh_config.rs` | Parse `~/.ssh/config` into `Vec<SshHost { alias, hostname: Option<String>, user: Option<String> }>`. Keys are case-insensitive. Comments and blank lines skipped. `Host` lines with multiple patterns or wildcards are skipped. Missing file → empty list. |
-| `slurm.rs` | `Job` struct with the ten squeue fields; `SQUEUE_FORMAT = "%i\|%P\|%j\|%T\|%M\|%D\|%R\|%l\|%C\|%m"`; `parse_squeue_output(&str) -> Vec<Job>`; `shell_quote(&str) -> String`; `build_ssh_args(host, user) -> Vec<String>`. Pure functions. |
+| `slurm.rs` | `Job` struct with the ten squeue fields; `SQUEUE_FORMAT` (see below); `parse_squeue_output(&str) -> Vec<Job>`; `shell_quote(&str) -> String`; `build_ssh_args(host, user) -> Vec<String>`. Pure functions. |
 | `fetch.rs` | `async fn fetch_jobs(host, user) -> Result<Vec<Job>, FetchError>`. Spawns `ssh` with `tokio::process::Command`, drains stdout and stderr concurrently with `tokio::join!`, maps non-zero exit to `FetchError`. On Windows sets `CREATE_NO_WINDOW`. |
 | `commands.rs` | Tauri commands: `list_clusters`, `save_cluster`, `delete_cluster`, `set_selection`, `list_ssh_hosts`, `fetch_jobs(cluster_id)`. Config lives in Tauri managed state as `Mutex<ClustersFile>`. |
 
@@ -37,6 +37,12 @@ Standard Tauri v2 layout: `src-tauri/` for Rust, `src/` for Svelte.
 `time`, `nodes`, `reason`, `time_limit`, `cpus`, `min_memory`. All strings.
 
 `Selection` is an enum: `All` or `Cluster(Uuid)`.
+
+The squeue format string, unchanged from the original:
+
+```
+%i|%P|%j|%T|%M|%D|%R|%l|%C|%m
+```
 
 ### Svelte frontend (`src/`)
 
