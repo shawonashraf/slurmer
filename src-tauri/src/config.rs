@@ -77,7 +77,25 @@ impl ClustersFile {
             std::fs::create_dir_all(parent)?;
         }
         let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, json)?;
+
+        // Write to a temporary sibling file, then atomically rename it to the target.
+        // This ensures the file is never left truncated if the process crashes mid-write.
+        let temp_path = match path.file_name() {
+            Some(name) => {
+                let mut temp_name = name.to_os_string();
+                temp_name.push(".tmp");
+                path.parent()
+                    .map(|p| p.join(&temp_name))
+                    .unwrap_or_else(|| temp_name.into())
+            }
+            None => return Err(ConfigError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "path has no file name",
+            ))),
+        };
+
+        std::fs::write(&temp_path, json)?;
+        std::fs::rename(&temp_path, path)?;
         Ok(())
     }
 
@@ -204,5 +222,29 @@ mod tests {
         file.upsert(a.clone());
         assert_eq!(file.find(a.id), Some(&a));
         assert_eq!(file.find(Uuid::new_v4()), None);
+    }
+
+    #[test]
+    fn save_leaves_no_temp_file_and_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("clusters.json");
+        let c = cluster("test");
+        let mut file = ClustersFile::default();
+        file.upsert(c.clone());
+        file.selected = Some(Selection::Cluster { id: c.id });
+        file.save(&path).unwrap();
+
+        // Verify only the target file exists, no .tmp leftover
+        let entries: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .map(|e| e.file_name())
+            .collect();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0], "clusters.json");
+
+        // Verify round-trip still works
+        let loaded = ClustersFile::load(&path).unwrap();
+        assert_eq!(loaded, file);
     }
 }
