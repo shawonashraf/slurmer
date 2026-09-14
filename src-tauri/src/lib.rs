@@ -1,4 +1,5 @@
 mod config;
+mod fetch;
 mod slurm;
 mod ssh_config;
 
