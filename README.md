@@ -5,6 +5,8 @@ clusters, fetched over ssh with a manual Refresh. Cross-platform port of
 [Job Tracker](https://github.com/shawonashraf/jobtracker) built with Rust,
 Tauri v2 and Svelte 5.
 
+![screenshot](sc.png)
+
 ## How it works
 
 - Saved cluster profiles (name, ssh host, user) live in `clusters.json` under
