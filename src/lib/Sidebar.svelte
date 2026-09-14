@@ -163,7 +163,7 @@
     color: inherit;
     cursor: pointer;
   }
-  .row:hover .edit {
+  .row:hover .edit, .row:focus-within .edit {
     display: inline-flex;
   }
   .row.active .edit {
@@ -171,6 +171,10 @@
   }
   .edit:hover {
     background: rgba(127, 127, 127, 0.25);
+  }
+  .edit:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
   .add {
     margin-top: 12px;
