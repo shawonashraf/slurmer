@@ -23,7 +23,7 @@ cargo clippy --all-targets        # must be warning-free
 cargo fmt --check                 # crate is kept rustfmt-clean
 ```
 
-Run `npm` commands from the repo root and `cargo` commands from `src-tauri/`. The first `cargo` build compiles Tauri and takes several minutes. Releases are cut by pushing a `v*` tag; `.github/workflows/release.yml` builds unsigned bundles for macOS (both arches), Linux and Windows as a draft release.
+Run `npm` commands from the repo root and `cargo` commands from `src-tauri/`. The first `cargo` build compiles Tauri and takes several minutes. Releases are cut by pushing a `v*` tag; `.github/workflows/release.yml` builds unsigned bundles for macOS (both arches), Linux and Windows as a draft release. Publishing that release triggers `.github/workflows/homebrew.yml`, which renders `Casks/slurmer.rb` for `shawonashraf/homebrew-tap` from `scripts/homebrew-cask.sh` (version plus per-arch dmg sha256) and pushes it over the `HOMEBREW_TAP_DEPLOY_KEY` secret. The cask in the tap is generated output: change the script, not the tap file.
 
 ## Architecture
 

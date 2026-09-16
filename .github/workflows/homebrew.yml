@@ -1,0 +1,75 @@
+name: homebrew
+
+# Regenerates Casks/slurmer.rb in shawonashraf/homebrew-tap from the macOS
+# bundles of a published release. Draft releases do not trigger this, so the
+# cask only ever points at assets that are publicly downloadable.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish to the tap (e.g. v0.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  update-cask:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release
+        env:
+          TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+        run: |
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Download macOS bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern "slurmer_${VERSION}_aarch64.dmg" \
+            --pattern "slurmer_${VERSION}_x64.dmg"
+          ls -l dist
+
+      - name: Render cask
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          arm=$(sha256sum "dist/slurmer_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
+          intel=$(sha256sum "dist/slurmer_${VERSION}_x64.dmg" | cut -d' ' -f1)
+          scripts/homebrew-cask.sh "$VERSION" "$arm" "$intel" > slurmer.rb
+          cat slurmer.rb
+
+      - name: Check out the tap
+        uses: actions/checkout@v4
+        with:
+          repository: shawonashraf/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: tap
+
+      - name: Commit and push the cask
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          cp slurmer.rb tap/Casks/slurmer.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/slurmer.rb
+          if git diff --cached --quiet; then
+            echo "Casks/slurmer.rb already matches ${VERSION}; nothing to push."
+            exit 0
+          fi
+          git commit -m "slurmer ${VERSION}"
+          git push

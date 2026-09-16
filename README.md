@@ -23,6 +23,31 @@ Tauri v2 and Svelte 5.
 If ssh needs an interactive login, open a terminal and run `ssh <host>` once,
 then press Refresh again.
 
+## Install
+
+### macOS via Homebrew
+
+```bash
+brew install --cask shawonashraf/tap/slurmer
+```
+
+Release builds are ad-hoc signed and not notarized. The cask removes the
+quarantine attribute from `slurmer.app` after installing, so the app opens
+without the "damaged" Gatekeeper dialog and no manual `xattr` step is needed.
+`brew upgrade` picks up new releases; the cask is regenerated automatically
+when a release is published.
+
+### Other platforms and manual installs
+
+Download a bundle from the [releases page](https://github.com/shawonashraf/slurmer/releases):
+`.dmg` for macOS, `.deb`/`.rpm`/`.AppImage` for Linux, `.msi`/`.exe` for
+Windows. On macOS, clear the quarantine flag after copying the app to
+`/Applications`:
+
+```bash
+xattr -cr /Applications/slurmer.app
+```
+
 ## Requirements
 
 - An `ssh` client on your PATH (built in on macOS, Linux, and Windows 10+).
@@ -43,9 +68,8 @@ cd src-tauri && cargo test && cargo clippy --all-targets
 npm run tauri build    # bundles for the current platform into src-tauri/target/release/bundle/
 ```
 
-Releases are unsigned. On macOS, clear the quarantine flag after copying the
-app to `/Applications`:
-
-```bash
-xattr -cr /Applications/slurmer.app
-```
+Releases are cut by pushing a `v*` tag. The release workflow builds the
+bundles as a draft release; publishing it triggers the `homebrew` workflow,
+which regenerates the cask in
+[shawonashraf/homebrew-tap](https://github.com/shawonashraf/homebrew-tap)
+from `scripts/homebrew-cask.sh`.
