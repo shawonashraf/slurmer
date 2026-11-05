@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Slurmer
+Comment=Slurm job tracker over ssh
+Exec=slurmer
+Icon=org.shawonashraf.slurmer
+Terminal=false
+Categories=Development;
+Keywords=slurm;hpc;cluster;squeue;ssh;
+StartupWMClass=org.shawonashraf.slurmer
