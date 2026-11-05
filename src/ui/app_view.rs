@@ -6,12 +6,13 @@ use super::model::{after_delete, initial_selection, Fetches};
 use super::theme::{theme, Theme};
 use super::{main_panel, sidebar};
 use crate::config::{Cluster, Selection};
-use crate::fetch::fetch_jobs;
+use crate::fetch::{fetch_jobs, FetchError};
 use crate::ssh_config::SshHost;
 use crate::store::{
     apply_delete, apply_save, apply_selection, list_ssh_hosts, validate_input, AppState,
     ClusterInput,
 };
+use futures::channel::oneshot;
 use gpui::{div, prelude::*, px, Context, Entity, MouseButton, Subscription, Window};
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -77,10 +78,18 @@ impl SlurmerApp {
         cx.notify();
 
         cx.spawn(async move |this, cx| {
-            let result = cx
-                .background_executor()
-                .spawn(async move { fetch_jobs(&host, &user) })
-                .await;
+            // A dedicated thread per fetch: ssh can block for minutes (no
+            // ConnectTimeout by design), and gpui's background pool is
+            // fixed-size on Linux, so blocking it would serialise refreshes.
+            let (tx, rx) = oneshot::channel();
+            std::thread::spawn(move || {
+                let _ = tx.send(fetch_jobs(&host, &user));
+            });
+            let result = rx.await.unwrap_or_else(|_| {
+                Err(FetchError {
+                    message: "ssh worker thread exited unexpectedly".to_string(),
+                })
+            });
             // Fails only if the window has closed; nothing left to update.
             let _ = this.update(cx, |app, cx| {
                 app.fetches.finish(id, result, &app.clusters);
@@ -188,9 +197,15 @@ impl Render for SlurmerApp {
                         .items_center()
                         .justify_center()
                         .bg(t.scrim)
+                        // Modal: nothing behind the backdrop gets hover,
+                        // clicks or scroll while the form is open.
+                        .occlude()
                         .on_mouse_down(
                             MouseButton::Left,
-                            cx.listener(|this, _, _, cx| this.close_form(cx)),
+                            cx.listener(|this, _, _, cx| {
+                                cx.stop_propagation();
+                                this.close_form(cx);
+                            }),
                         )
                         .child(form),
                 )

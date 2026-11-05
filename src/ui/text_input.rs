@@ -78,6 +78,36 @@ pub fn next_boundary(text: &str, offset: usize) -> usize {
         .unwrap_or(text.len())
 }
 
+/// Byte offset in `text` of a UTF-16 offset, clamped to `text.len()`.
+fn utf16_to_utf8(text: &str, utf16: usize) -> usize {
+    let mut units = 0;
+    for (i, ch) in text.char_indices() {
+        if units >= utf16 {
+            return i;
+        }
+        units += ch.len_utf16();
+    }
+    text.len()
+}
+
+/// Selection after the IME replaces the marked text with `new_text` at byte
+/// offset `start`. The IME gives the selection in UTF-16 units relative to
+/// `new_text`; without one, the cursor goes after the new text. The result
+/// never points past the inserted text, so an IME cancel (empty text,
+/// selection 0..0) cannot leave a selection beyond the end of the content.
+pub fn marked_selection(
+    new_text: &str,
+    start: usize,
+    selection_utf16: Option<&Range<usize>>,
+) -> Range<usize> {
+    match selection_utf16 {
+        Some(sel) => {
+            start + utf16_to_utf8(new_text, sel.start)..start + utf16_to_utf8(new_text, sel.end)
+        }
+        None => start + new_text.len()..start + new_text.len(),
+    }
+}
+
 pub struct TextInput {
     focus_handle: FocusHandle,
     content: SharedString,
@@ -374,11 +404,8 @@ impl EntityInputHandler for TextInput {
         } else {
             self.marked_range = None;
         }
-        self.selected_range = new_selected_range_utf16
-            .as_ref()
-            .map(|range_utf16| self.range_from_utf16(range_utf16))
-            .map(|new_range| new_range.start + range.start..new_range.end + range.end)
-            .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
+        self.selected_range =
+            marked_selection(new_text, range.start, new_selected_range_utf16.as_ref());
 
         cx.notify();
     }
@@ -643,6 +670,21 @@ impl Focusable for TextInput {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn marked_selection_is_relative_to_the_marked_text_and_clamped() {
+        // Composing "ni" at the start: cursor after it.
+        assert_eq!(marked_selection("ni", 0, Some(&(2..2))), 2..2);
+        assert_eq!(marked_selection("ni", 0, None), 2..2);
+        // After a 2-byte "é", offsets shift by the start only.
+        assert_eq!(marked_selection("ni", 2, Some(&(1..2))), 3..4);
+        // IME cancel: empty text, selection 0..0, previously marked 0..2.
+        assert_eq!(marked_selection("", 0, Some(&(0..0))), 0..0);
+        // Out-of-range selection from the IME is clamped to the text.
+        assert_eq!(marked_selection("ni", 5, Some(&(0..9))), 5..7);
+        // UTF-16 units: "😀" is 2 units and 4 bytes.
+        assert_eq!(marked_selection("😀a", 0, Some(&(2..3))), 4..5);
+    }
 
     #[test]
     fn boundaries_step_over_whole_graphemes() {
