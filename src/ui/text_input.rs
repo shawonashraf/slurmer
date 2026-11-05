@@ -469,7 +469,7 @@ impl Element for TextElement {
         window: &mut Window,
         cx: &mut App,
     ) -> Self::PrepaintState {
-        let t = theme(cx);
+        let t = theme(cx).clone();
         let (accent, muted) = (t.accent, t.muted);
         let input = self.input.read(cx);
         let content = input.content.clone();
@@ -598,7 +598,7 @@ impl Element for TextElement {
 
 impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let t = theme(cx);
+        let t = theme(cx).clone();
         let focused = self.focus_handle.is_focused(window);
         div()
             .flex()

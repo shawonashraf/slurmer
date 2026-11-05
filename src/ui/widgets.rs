@@ -24,7 +24,7 @@ pub fn button(
     disabled: bool,
     cx: &App,
 ) -> Stateful<Div> {
-    let t = theme(cx);
+    let t = theme(cx).clone();
     let (bg, border, fg, hover) = match variant {
         Variant::Default => (t.surface, t.border, t.text, t.surface_hover),
         Variant::Primary => (t.accent, t.accent, t.accent_text, t.accent_hover),
@@ -110,7 +110,7 @@ pub enum StripKind {
 
 /// Coloured message box for errors and warnings.
 pub fn strip(kind: StripKind, cx: &App) -> Div {
-    let t = theme(cx);
+    let t = theme(cx).clone();
     let (fg, bg) = match kind {
         StripKind::Error => (t.red, t.red_bg),
         StripKind::Warn => (t.amber, t.amber_bg),

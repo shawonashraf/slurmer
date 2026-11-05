@@ -1,7 +1,5 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-// Backend modules are wired to the UI in a later commit.
-#![allow(dead_code)]
 
 mod config;
 mod fetch;
@@ -11,10 +9,15 @@ mod store;
 mod ui;
 
 use gpui::{
-    div, prelude::*, px, size, App, Application, Bounds, Context, Window, WindowBounds,
-    WindowOptions,
+    actions, px, size, App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem,
+    TitlebarOptions, WindowBounds, WindowOptions,
 };
 use std::path::PathBuf;
+use ui::app_view::SlurmerApp;
+use ui::assets::Assets;
+use ui::theme::Theme;
+
+actions!(slurmer, [Quit]);
 
 /// Bundle identifier; also the config directory name, matching where the
 /// Tauri build kept `clusters.json` so existing profiles carry over.
@@ -32,25 +35,43 @@ pub fn config_path() -> PathBuf {
         .join("clusters.json")
 }
 
-struct Placeholder;
-
-impl Render for Placeholder {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().child("slurmer")
-    }
-}
-
 fn main() {
-    Application::new().run(|cx: &mut App| {
+    Application::new().with_assets(Assets).run(|cx: &mut App| {
+        ui::text_input::bind_keys(cx);
+        ui::cluster_form::bind_keys(cx);
+        let quit = if cfg!(target_os = "macos") {
+            "cmd-q"
+        } else {
+            "ctrl-q"
+        };
+        cx.bind_keys([KeyBinding::new(quit, Quit, None)]);
+        cx.on_action(|_: &Quit, cx| cx.quit());
+        cx.set_menus(vec![Menu {
+            name: "slurmer".into(),
+            items: vec![MenuItem::action("Quit slurmer", Quit)],
+        }]);
+        cx.set_global(Theme::light());
+
         let bounds = Bounds::centered(None, size(px(1100.), px(680.)), cx);
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("slurmer".into()),
+                    ..Default::default()
+                }),
+                window_min_size: Some(size(px(900.), px(500.))),
+                app_id: Some(APP_ID.to_string()),
                 ..Default::default()
             },
-            |_, cx| cx.new(|_| Placeholder),
+            |window, cx| {
+                cx.set_global(Theme::for_appearance(window.appearance()));
+                cx.new(|cx| SlurmerApp::new(config_path(), window, cx))
+            },
         )
         .expect("open window");
+        // Single-window app: closing the window quits, as the Tauri build did.
+        cx.on_window_closed(|cx| cx.quit()).detach();
         cx.activate(true);
     });
 }
