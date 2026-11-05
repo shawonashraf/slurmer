@@ -49,6 +49,13 @@ sudo dnf copr remove shawonashraf/slurmer # also drop the repository
 Saved clusters stay in `~/.config/org.shawonashraf.slurmer/clusters.json`
 after removal; delete that folder to wipe them.
 
+### Debian and Ubuntu
+
+There is no PPA or apt repository. Download the `.deb` from the
+[releases page](https://github.com/shawonashraf/slurmer/releases) and install
+it with `sudo apt install ./Slurmer_<version>_amd64.deb`, or use the
+`.AppImage`. Repeat with the next release's `.deb` to upgrade.
+
 ### Other platforms and manual installs
 
 Download a bundle from the [releases page](https://github.com/shawonashraf/slurmer/releases):
