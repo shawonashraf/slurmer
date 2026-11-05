@@ -16,7 +16,7 @@ brew install --cask shawonashraf/tap/slurmer
 ```
 
 Needs macOS 11 or newer. Release builds are ad-hoc signed and not notarized;
-the cask removes the quarantine attribute from `slurmer.app` after installing,
+the cask removes the quarantine attribute from `Slurmer.app` after installing,
 so the app opens without the "damaged" Gatekeeper dialog and no manual `xattr`
 step is needed. Later:
 
@@ -34,7 +34,7 @@ Windows. On macOS, clear the quarantine flag after copying the app to
 `/Applications`:
 
 ```bash
-xattr -cr /Applications/slurmer.app
+xattr -cr /Applications/Slurmer.app
 ```
 
 ## How it works

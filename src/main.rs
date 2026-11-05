@@ -47,8 +47,8 @@ fn main() {
         cx.bind_keys([KeyBinding::new(quit, Quit, None)]);
         cx.on_action(|_: &Quit, cx| cx.quit());
         cx.set_menus(vec![Menu {
-            name: "slurmer".into(),
-            items: vec![MenuItem::action("Quit slurmer", Quit)],
+            name: "Slurmer".into(),
+            items: vec![MenuItem::action("Quit Slurmer", Quit)],
         }]);
         cx.set_global(Theme::light());
 
@@ -57,7 +57,7 @@ fn main() {
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
                 titlebar: Some(TitlebarOptions {
-                    title: Some("slurmer".into()),
+                    title: Some("Slurmer".into()),
                     ..Default::default()
                 }),
                 window_min_size: Some(size(px(900.), px(500.))),

@@ -6,6 +6,13 @@ authors = ["Shawon Ashraf"]
 license = "MIT"
 edition = "2021"
 
+# Capitalised executable and bundle name (Slurmer.app, Slurmer.exe). The
+# Debian package name is derived from product-name in kebab case, so it
+# stays `slurmer`.
+[[bin]]
+name = "Slurmer"
+path = "src/main.rs"
+
 [dependencies]
 gpui = "0.2.2"
 dirs = "6"
@@ -32,7 +39,7 @@ strip = true
 # `cargo packager --release` bundles the already-built release binary.
 # Formats are chosen per platform on the command line (see release.yml).
 [package.metadata.packager]
-product-name = "slurmer"
+product-name = "Slurmer"
 identifier = "org.shawonashraf.slurmer"
 category = "DeveloperTool"
 publisher = "Shawon Ashraf"

@@ -35,7 +35,7 @@ cask "slurmer" do
   sha256 arm:   "${arm_sha}",
          intel: "${intel_sha}"
 
-  url "https://github.com/shawonashraf/slurmer/releases/download/v#{version}/slurmer_#{version}_#{arch}.dmg"
+  url "https://github.com/shawonashraf/slurmer/releases/download/v#{version}/Slurmer_#{version}_#{arch}.dmg"
   name "slurmer"
   desc "Slurm job queue viewer for HPC clusters, fetched over ssh"
   homepage "https://github.com/shawonashraf/slurmer"
@@ -47,12 +47,12 @@ cask "slurmer" do
 
   depends_on macos: :big_sur
 
-  app "slurmer.app"
+  app "Slurmer.app"
 
   # Release builds are ad-hoc signed and not notarized, so Gatekeeper reports
   # the app as damaged on first launch unless the quarantine flag is removed.
   postflight_steps do
-    run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/slurmer.app"]
+    run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Slurmer.app"]
   end
 
   uninstall quit: "org.shawonashraf.slurmer"
@@ -66,7 +66,7 @@ cask "slurmer" do
 
   caveats <<~EOS
     slurmer is not notarized. This cask removes the quarantine attribute from
-    slurmer.app after installing, so macOS does not report it as damaged.
+    Slurmer.app after installing, so macOS does not report it as damaged.
   EOS
 end
 CASK
