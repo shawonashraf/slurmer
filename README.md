@@ -28,13 +28,26 @@ brew uninstall --zap --cask slurmer   # also delete clusters.json and caches
 
 ### Fedora via COPR
 
+Packages are built on Fedora's COPR service in
+[shawonashraf/slurmer](https://copr.fedorainfracloud.org/coprs/shawonashraf/slurmer/),
+for Fedora 44, 45 and rawhide on x86_64 and aarch64.
+
 ```bash
 sudo dnf copr enable shawonashraf/slurmer
 sudo dnf install slurmer
 ```
 
-Built for Fedora 44, 45 and rawhide on x86_64 and aarch64. The command is
-`slurmer`, and the app shows up in your desktop's app list.
+The command is `slurmer`, and the app shows up in your desktop's app list.
+It pulls in `openssh-clients` and `vulkan-loader`. Later:
+
+```bash
+sudo dnf upgrade slurmer                  # move to the latest release
+sudo dnf remove slurmer                   # remove the app, keep your saved clusters
+sudo dnf copr remove shawonashraf/slurmer # also drop the repository
+```
+
+Saved clusters stay in `~/.config/org.shawonashraf.slurmer/clusters.json`
+after removal; delete that folder to wipe them.
 
 ### Other platforms and manual installs
 
