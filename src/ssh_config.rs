@@ -1,10 +1,9 @@
 //! Minimal `~/.ssh/config` reader: lists single-name `Host` aliases with
 //! their `HostName` and `User`, so the cluster form can offer them.
 
-use serde::Serialize;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SshHost {
     pub alias: String,
     pub hostname: Option<String>,

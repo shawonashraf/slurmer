@@ -1,16 +1,13 @@
-//! Tauri commands: the only surface the frontend talks to.
+//! Cluster store: the config file, its in-memory copy, and the rules for
+//! changing it. The UI calls these functions; it never touches the file.
 
 use crate::config::{Cluster, ClustersFile, Selection};
-use crate::fetch::{fetch_jobs as run_fetch, FetchError};
-use crate::slurm::Job;
 use crate::ssh_config::{default_config_path, load_ssh_hosts, SshHost};
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
 use uuid::Uuid;
 
-/// Managed application state: the config file path, its in-memory
+/// Application state: the config file path, its in-memory
 /// contents, and the error (if any) from loading it at startup.
 ///
 /// `load_error` is a `Mutex` (not a plain field) because a successful
@@ -39,14 +36,7 @@ impl AppState {
     }
 }
 
-#[derive(Debug, Serialize)]
-pub struct ClustersResponse {
-    pub clusters: Vec<Cluster>,
-    pub selected: Option<Selection>,
-    pub load_error: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct ClusterInput {
     pub id: Option<Uuid>,
     pub name: String,
@@ -122,60 +112,12 @@ pub fn apply_selection(state: &AppState, selection: Option<Selection>) -> Result
     file.save(&state.path).map_err(|e| e.to_string())
 }
 
-#[tauri::command(rename_all = "snake_case")]
-pub fn list_clusters(state: State<'_, AppState>) -> Result<ClustersResponse, String> {
-    let file = state.file.lock().map_err(|e| e.to_string())?;
-    let load_error = state.load_error.lock().map_err(|e| e.to_string())?.clone();
-    Ok(ClustersResponse {
-        clusters: file.clusters.clone(),
-        selected: file.selected.clone(),
-        load_error,
-    })
-}
-
-#[tauri::command(rename_all = "snake_case")]
-pub fn save_cluster(state: State<'_, AppState>, input: ClusterInput) -> Result<Cluster, String> {
-    let cluster = validate_input(input)?;
-    apply_save(&state, cluster.clone())?;
-    Ok(cluster)
-}
-
-#[tauri::command(rename_all = "snake_case")]
-pub fn delete_cluster(state: State<'_, AppState>, id: Uuid) -> Result<(), String> {
-    apply_delete(&state, id)
-}
-
-#[tauri::command(rename_all = "snake_case")]
-pub fn set_selection(
-    state: State<'_, AppState>,
-    selection: Option<Selection>,
-) -> Result<(), String> {
-    apply_selection(&state, selection)
-}
-
-#[tauri::command(rename_all = "snake_case")]
+/// Single-name `Host` aliases from `~/.ssh/config`, for the form's import
+/// picker. Missing or unreadable config yields an empty list.
 pub fn list_ssh_hosts() -> Vec<SshHost> {
     default_config_path()
         .map(|path| load_ssh_hosts(&path))
         .unwrap_or_default()
-}
-
-#[tauri::command(rename_all = "snake_case")]
-pub async fn fetch_jobs(
-    state: State<'_, AppState>,
-    cluster_id: Uuid,
-) -> Result<Vec<Job>, FetchError> {
-    // Copy what we need out of the mutex before awaiting.
-    let (host, user) = {
-        let file = state.file.lock().map_err(|e| FetchError {
-            message: e.to_string(),
-        })?;
-        let cluster = file.find(cluster_id).ok_or_else(|| FetchError {
-            message: "Unknown cluster".to_string(),
-        })?;
-        (cluster.host.clone(), cluster.user.clone())
-    };
-    run_fetch(&host, &user).await
 }
 
 #[cfg(test)]

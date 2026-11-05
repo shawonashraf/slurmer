@@ -1,11 +1,9 @@
 //! Runs `ssh <host> squeue ...` and turns the result into jobs.
 
 use crate::slurm::{build_ssh_args, parse_squeue_output, Job};
-use serde::Serialize;
-use std::process::Stdio;
-use tokio::process::Command;
+use std::process::{Command, Stdio};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FetchError {
     pub message: String,
 }
@@ -14,17 +12,13 @@ pub struct FetchError {
 /// the built-in OpenSSH `ssh.exe`.
 pub const SSH_PROGRAM: &str = "ssh";
 
-pub async fn fetch_jobs(host: &str, user: &str) -> Result<Vec<Job>, FetchError> {
-    fetch_jobs_with(SSH_PROGRAM, host, user).await
+pub fn fetch_jobs(host: &str, user: &str) -> Result<Vec<Job>, FetchError> {
+    fetch_jobs_with(SSH_PROGRAM, host, user)
 }
 
 /// Same as `fetch_jobs` but with an explicit program, so tests can point it
 /// at a fake ssh script.
-pub async fn fetch_jobs_with(
-    program: &str,
-    host: &str,
-    user: &str,
-) -> Result<Vec<Job>, FetchError> {
+pub fn fetch_jobs_with(program: &str, host: &str, user: &str) -> Result<Vec<Job>, FetchError> {
     let mut cmd = Command::new(program);
     cmd.args(build_ssh_args(host, user))
         .stdin(Stdio::null())
@@ -33,13 +27,14 @@ pub async fn fetch_jobs_with(
 
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
     // `output()` drains stdout and stderr concurrently, so a chatty stderr
     // (banners, warnings) cannot fill the pipe and deadlock the child.
-    let output = cmd.output().await.map_err(|e| FetchError {
+    let output = cmd.output().map_err(|e| FetchError {
         message: format!("Could not run {program}: {e}"),
     })?;
 
@@ -74,59 +69,49 @@ mod tests {
         path
     }
 
-    #[tokio::test]
-    async fn success_parses_stdout() {
+    #[test]
+    fn success_parses_stdout() {
         let dir = tempfile::tempdir().unwrap();
         let ssh = fake_ssh(
             dir.path(),
             "printf '1|p|n|RUNNING|1:00|1|node1|2:00|4|8G\\n2|p|m|PENDING|0:00|1|(Priority)|2:00|4|8G\\n'",
         );
-        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
-            .await
-            .unwrap();
+        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").unwrap();
         assert_eq!(jobs.len(), 2);
         assert_eq!(jobs[0].id, "1");
         assert_eq!(jobs[1].state, "PENDING");
     }
 
-    #[tokio::test]
-    async fn success_with_empty_stdout_is_no_jobs() {
+    #[test]
+    fn success_with_empty_stdout_is_no_jobs() {
         let dir = tempfile::tempdir().unwrap();
         let ssh = fake_ssh(dir.path(), "exit 0");
-        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
-            .await
-            .unwrap();
+        let jobs = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").unwrap();
         assert!(jobs.is_empty());
     }
 
-    #[tokio::test]
-    async fn nonzero_exit_reports_trimmed_stderr() {
+    #[test]
+    fn nonzero_exit_reports_trimmed_stderr() {
         let dir = tempfile::tempdir().unwrap();
         let ssh = fake_ssh(
             dir.path(),
             "echo '  Permission denied (publickey).  ' >&2; exit 255",
         );
-        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
-            .await
-            .unwrap_err();
+        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").unwrap_err();
         assert_eq!(err.message, "Permission denied (publickey).");
     }
 
-    #[tokio::test]
-    async fn nonzero_exit_with_empty_stderr_reports_status() {
+    #[test]
+    fn nonzero_exit_with_empty_stderr_reports_status() {
         let dir = tempfile::tempdir().unwrap();
         let ssh = fake_ssh(dir.path(), "exit 3");
-        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
-            .await
-            .unwrap_err();
+        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").unwrap_err();
         assert_eq!(err.message, "ssh exited with status 3");
     }
 
-    #[tokio::test]
-    async fn missing_program_is_reported() {
-        let err = fetch_jobs_with("/nonexistent/dir/ssh", "h", "u")
-            .await
-            .unwrap_err();
+    #[test]
+    fn missing_program_is_reported() {
+        let err = fetch_jobs_with("/nonexistent/dir/ssh", "h", "u").unwrap_err();
         assert!(
             err.message
                 .starts_with("Could not run /nonexistent/dir/ssh:"),
@@ -135,17 +120,15 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn passes_built_args_to_program() {
+    #[test]
+    fn passes_built_args_to_program() {
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("args.txt");
         let ssh = fake_ssh(
             dir.path(),
             &format!("printf '%s\\n' \"$@\" > '{}'", out.display()),
         );
-        fetch_jobs_with(ssh.to_str().unwrap(), "myhost", "alice")
-            .await
-            .unwrap();
+        fetch_jobs_with(ssh.to_str().unwrap(), "myhost", "alice").unwrap();
         let recorded: Vec<String> = std::fs::read_to_string(&out)
             .unwrap()
             .lines()
@@ -154,17 +137,15 @@ mod tests {
         assert_eq!(recorded, build_ssh_args("myhost", "alice"));
     }
 
-    #[tokio::test]
-    async fn large_stderr_does_not_deadlock() {
+    #[test]
+    fn large_stderr_does_not_deadlock() {
         let dir = tempfile::tempdir().unwrap();
         // 256 KiB of stderr, well past a typical 64 KiB pipe buffer.
         let ssh = fake_ssh(
             dir.path(),
             "i=0; while [ $i -lt 4096 ]; do printf '%064d\\n' $i >&2; i=$((i+1)); done; exit 1",
         );
-        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u")
-            .await
-            .unwrap_err();
+        let err = fetch_jobs_with(ssh.to_str().unwrap(), "h", "u").unwrap_err();
         assert!(err.message.len() > 200_000);
     }
 }

@@ -1,11 +1,9 @@
 //! Slurm job model, `squeue` output parsing, and the ssh argv builder.
 
-use serde::Serialize;
-
 /// Pipe-delimited `squeue -o` format. Ten fields, one job per line.
 pub const SQUEUE_FORMAT: &str = "%i|%P|%j|%T|%M|%D|%R|%l|%C|%m";
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
     pub id: String,
     pub partition: String,
