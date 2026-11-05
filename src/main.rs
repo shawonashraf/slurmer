@@ -8,6 +8,7 @@ mod fetch;
 mod slurm;
 mod ssh_config;
 mod store;
+mod ui;
 
 use gpui::{
     div, prelude::*, px, size, App, Application, Bounds, Context, Window, WindowBounds,
