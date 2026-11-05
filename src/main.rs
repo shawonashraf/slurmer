@@ -10,7 +10,7 @@ mod ui;
 
 use gpui::{
     actions, px, size, App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem,
-    TitlebarOptions, WindowBounds, WindowOptions,
+    TitlebarOptions, WindowBounds, WindowDecorations, WindowOptions,
 };
 use std::path::PathBuf;
 use ui::app_view::SlurmerApp;
@@ -62,9 +62,17 @@ fn main() {
                 }),
                 window_min_size: Some(size(px(900.), px(500.))),
                 app_id: Some(APP_ID.to_string()),
+                // Draw our own title bar on Linux. gpui otherwise asks for a
+                // compositor-drawn frame and reports one even when the
+                // compositor cannot draw it (GNOME on Wayland), which leaves
+                // the window with no buttons. See ui/title_bar.rs.
+                window_decorations: cfg!(target_os = "linux").then_some(WindowDecorations::Client),
                 ..Default::default()
             },
             |window, cx| {
+                // gpui 0.2.2 applies TitlebarOptions::title only on X11, so
+                // set it again for Wayland (window lists, overview, alt-tab).
+                window.set_window_title("Slurmer");
                 cx.set_global(Theme::for_appearance(window.appearance()));
                 cx.new(|cx| SlurmerApp::new(config_path(), window, cx))
             },

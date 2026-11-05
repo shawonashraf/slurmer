@@ -44,6 +44,7 @@ UI (`src/ui/`):
 - `app_view.rs`: `SlurmerApp`, the root entity. Owns `AppState`, a mirror of the cluster list, `Fetches`, and the open `ClusterForm`. Does every store call. `refresh` spawns one background task per cluster.
 - `sidebar.rs`, `main_panel.rs`, `job_table.rs`: render functions over `&SlurmerApp`.
 - `cluster_form.rs`: modal entity. Only collects input and emits `FormEvent::{Save, Delete, Cancel}`; the root view calls the store and reports errors back with `set_error`. A new form entity is created on every open.
+- `title_bar.rs`: the self-drawn window frame (title, round minimise/maximise/close, drag, double-click to maximise, right-click window menu, invisible resize strips). Renders only when `window.window_decorations()` is `Client`. `main.rs` requests `WindowDecorations::Client` on Linux because gpui 0.2.2 otherwise asks for server decorations and reports `Server` even on GNOME Wayland, which draws none. `main.rs` also calls `set_window_title` after opening, since gpui applies `TitlebarOptions::title` only on X11.
 - `text_input.rs`: single-line input adapted from gpui 0.2.2's `examples/input.rs` (IME, UTF-16 offsets, clipboard).
 - `widgets.rs` (button, badge, spinner, strip, mono text), `theme.rs` (light/dark tokens as a gpui `Global`, swapped on window appearance change), `assets.rs` (SVG icons from `assets/ui/` compiled in via `include_bytes!`).
 

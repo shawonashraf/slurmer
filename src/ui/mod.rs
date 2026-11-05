@@ -7,4 +7,5 @@ pub mod model;
 pub mod sidebar;
 pub mod text_input;
 pub mod theme;
+pub mod title_bar;
 pub mod widgets;

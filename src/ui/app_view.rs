@@ -4,7 +4,7 @@
 use super::cluster_form::{ClusterForm, FormEvent};
 use super::model::{after_delete, initial_selection, Fetches};
 use super::theme::{theme, Theme};
-use super::{main_panel, sidebar};
+use super::{main_panel, sidebar, title_bar};
 use crate::config::{Cluster, Selection};
 use crate::fetch::{fetch_jobs, FetchError};
 use crate::ssh_config::SshHost;
@@ -13,7 +13,7 @@ use crate::store::{
     ClusterInput,
 };
 use futures::channel::oneshot;
-use gpui::{div, prelude::*, px, Context, Entity, MouseButton, Subscription, Window};
+use gpui::{div, prelude::*, px, Context, Decorations, Entity, MouseButton, Subscription, Window};
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -26,6 +26,9 @@ pub struct SlurmerApp {
     pub load_error: Option<String>,
     form: Option<(Entity<ClusterForm>, Subscription)>,
     _appearance: Subscription,
+    /// Left button is down on the self-drawn title bar; the next pointer
+    /// move hands the window to the compositor to drag.
+    pub title_drag: bool,
 }
 
 impl SlurmerApp {
@@ -52,6 +55,7 @@ impl SlurmerApp {
             load_error,
             form: None,
             _appearance: appearance,
+            title_drag: false,
         }
     }
 
@@ -175,18 +179,36 @@ impl SlurmerApp {
 }
 
 impl Render for SlurmerApp {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let t = theme(cx).clone();
         let form = self.form.as_ref().map(|(form, _)| form.clone());
+        // Some(tiling) when we must draw our own frame (GNOME on Wayland).
+        let client_frame = match window.window_decorations() {
+            Decorations::Client { tiling } => Some(tiling),
+            Decorations::Server => None,
+        };
         div()
             .relative()
             .flex()
+            .flex_col()
             .size_full()
             .bg(t.bg)
             .text_color(t.text)
             .text_size(px(13.))
-            .child(sidebar::render(self, cx))
-            .child(main_panel::render(self, cx))
+            .when_some(client_frame, |root, tiling| {
+                root.when(!tiling.is_tiled(), |root| {
+                    root.border_1().border_color(t.border)
+                })
+                .child(title_bar::render(window, cx))
+            })
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_h_0()
+                    .child(sidebar::render(self, cx))
+                    .child(main_panel::render(self, cx)),
+            )
             .when_some(form, |root, form| {
                 root.child(
                     div()
@@ -209,6 +231,9 @@ impl Render for SlurmerApp {
                         )
                         .child(form),
                 )
+            })
+            .when_some(client_frame, |root, tiling| {
+                root.children(title_bar::resize_handles(tiling))
             })
     }
 }

@@ -225,6 +225,49 @@ pub fn subtitle(sel: &Selection, clusters: &[Cluster]) -> String {
     }
 }
 
+/// Which window sides touch the screen edge (tiled or maximised). Mirrors
+/// gpui's `Tiling` so this module stays free of gpui types.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Tiled {
+    pub top: bool,
+    pub bottom: bool,
+    pub left: bool,
+    pub right: bool,
+}
+
+/// A window edge or corner the user can drag to resize.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Edge {
+    Top,
+    Bottom,
+    Left,
+    Right,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+/// Resize handles to draw when slurmer draws its own window frame (GNOME on
+/// Wayland). A tiled side has no handle, and a corner needs both of its
+/// sides free.
+pub fn resize_edges(tiled: Tiled) -> Vec<Edge> {
+    let (t, b, l, r) = (!tiled.top, !tiled.bottom, !tiled.left, !tiled.right);
+    [
+        (t, Edge::Top),
+        (b, Edge::Bottom),
+        (l, Edge::Left),
+        (r, Edge::Right),
+        (t && l, Edge::TopLeft),
+        (t && r, Edge::TopRight),
+        (b && l, Edge::BottomLeft),
+        (b && r, Edge::BottomRight),
+    ]
+    .into_iter()
+    .filter_map(|(free, edge)| free.then_some(edge))
+    .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -424,5 +467,61 @@ mod tests {
         let gone = Selection::Cluster { id: Uuid::new_v4() };
         assert_eq!(title(&gone, &list1), "");
         assert_eq!(subtitle(&gone, &list1), "");
+    }
+
+    #[test]
+    fn floating_window_gets_all_eight_resize_handles() {
+        let free = Tiled::default();
+        let edges = resize_edges(free);
+        assert_eq!(edges.len(), 8);
+        for e in [
+            Edge::Top,
+            Edge::Bottom,
+            Edge::Left,
+            Edge::Right,
+            Edge::TopLeft,
+            Edge::TopRight,
+            Edge::BottomLeft,
+            Edge::BottomRight,
+        ] {
+            assert!(edges.contains(&e), "missing {e:?}");
+        }
+    }
+
+    #[test]
+    fn maximised_window_gets_no_resize_handles() {
+        let all = Tiled {
+            top: true,
+            bottom: true,
+            left: true,
+            right: true,
+        };
+        assert!(resize_edges(all).is_empty());
+    }
+
+    #[test]
+    fn left_snapped_window_resizes_only_from_its_free_right_side() {
+        // Snapped to the left half: top, bottom and left touch the screen.
+        let snapped = Tiled {
+            top: true,
+            bottom: true,
+            left: true,
+            right: false,
+        };
+        assert_eq!(resize_edges(snapped), vec![Edge::Right]);
+    }
+
+    #[test]
+    fn corner_needs_both_of_its_sides_free() {
+        let top_only = Tiled {
+            top: true,
+            ..Tiled::default()
+        };
+        let edges = resize_edges(top_only);
+        assert!(!edges.contains(&Edge::Top));
+        assert!(!edges.contains(&Edge::TopLeft));
+        assert!(!edges.contains(&Edge::TopRight));
+        assert!(edges.contains(&Edge::BottomLeft));
+        assert!(edges.contains(&Edge::BottomRight));
     }
 }
