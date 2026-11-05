@@ -2,8 +2,8 @@
 
 A small desktop app that shows your Slurm job queue on one or more HPC
 clusters, fetched over ssh with a manual Refresh. Cross-platform port of
-[Job Tracker](https://github.com/shawonashraf/jobtracker) built with Rust,
-Tauri v2 and Svelte 5.
+[Job Tracker](https://github.com/shawonashraf/jobtracker), written in Rust
+with a native [gpui](https://gpui.rs) UI.
 
 ![screenshot](sc.png)
 
@@ -29,7 +29,7 @@ brew uninstall --zap --cask slurmer   # also delete clusters.json and caches
 ### Other platforms and manual installs
 
 Download a bundle from the [releases page](https://github.com/shawonashraf/slurmer/releases):
-`.dmg` for macOS, `.deb`/`.rpm`/`.AppImage` for Linux, `.msi`/`.exe` for
+`.dmg` for macOS, `.deb`/`.AppImage` for Linux, `.msi`/`-setup.exe` for
 Windows. On macOS, clear the quarantine flag after copying the app to
 `/Applications`:
 
@@ -61,24 +61,34 @@ then press Refresh again.
 ## Develop
 
 ```bash
-npm install
-npm run tauri dev      # run the app with hot reload
-npm run check          # svelte-check + tsc
-cd src-tauri && cargo test && cargo clippy --all-targets
+cargo run                       # debug build of the app
+cargo test                      # all tests (fetch tests are unix-only)
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
 ```
+
+Linux needs the gpui build dependencies:
+`libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev
+libxcb1-dev libfontconfig1-dev libfreetype6-dev libvulkan-dev`.
+
+Set `SLURMER_CONFIG=/path/to/clusters.json` to run against a scratch config
+instead of your real one.
 
 ## Build
 
 ```bash
-npm run tauri build    # bundles for the current platform into src-tauri/target/release/bundle/
+cargo install cargo-packager --locked
+cargo build --release
+cargo packager --release --formats app,dmg      # macOS; deb,appimage on Linux; nsis,wix on Windows
 ```
+
+Bundles land in `target/release/`.
 
 ## Release
 
-1. Bump `version` in `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` and
-   `package.json`, commit, and push a matching `v*` tag.
+1. Bump `version` in `Cargo.toml`, commit, and push a matching `v*` tag.
 2. The `release` workflow builds bundles for macOS (arm64 and x64), Linux and
-   Windows and attaches them to a draft GitHub release.
+   Windows with cargo-packager and attaches them to a draft GitHub release.
 3. Publish the draft. That triggers the `homebrew` workflow, which downloads
    the two macOS dmgs, renders the cask with `scripts/homebrew-cask.sh`, and
    pushes it to

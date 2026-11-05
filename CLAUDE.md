@@ -4,41 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-slurmer is a Tauri v2 desktop app (Rust backend, Svelte 5 + TypeScript frontend) that shows a user's Slurm job queue on one or more saved HPC clusters. It shells out to the system `ssh` binary on a manual Refresh; there is no polling, no notifications, no `scancel`, and no in-app SSH library by design. Design spec: `docs/superpowers/specs/2026-09-14-slurmer-design.md` (the binding authority when code and intent disagree).
+slurmer is a native Rust desktop app with a [gpui](https://gpui.rs) UI that shows a user's Slurm job queue on one or more saved HPC clusters. It shells out to the system `ssh` binary on a manual Refresh; there is no polling, no notifications, no `scancel`, and no in-app SSH library by design. Design spec: `docs/superpowers/specs/2026-09-14-slurmer-design.md` (the binding authority when code and intent disagree; its 2026-11-05 amendment covers the move from Tauri + Svelte to gpui).
 
 ## Commands
 
 ```bash
-npm install                       # once; also installs @tauri-apps/cli
-npm run tauri dev                 # run the app with hot reload (Vite on 127.0.0.1:1420)
-npm run check                     # svelte-check + tsc; the only frontend typecheck/lint gate
-npm run tauri build               # platform bundles into src-tauri/target/release/bundle/
-npm run tauri build -- --no-bundle  # just the release binary (faster end-to-end compile check)
-
-cd src-tauri
-cargo test                        # all backend tests (fetch.rs tests are unix-only)
-cargo test config::               # one module (slurm, ssh_config, config, fetch, commands)
+cargo run                         # debug build of the app
+SLURMER_CONFIG=/tmp/c.json cargo run   # use a scratch clusters.json, not the real one
+cargo test                        # all tests (fetch.rs tests are unix-only)
+cargo test ui::model              # one module (slurm, ssh_config, config, fetch, store, ui::model, ...)
 cargo test shell_quote            # tests whose name contains a substring
-cargo clippy --all-targets        # must be warning-free
+cargo clippy --all-targets -- -D warnings   # must be warning-free
 cargo fmt --check                 # crate is kept rustfmt-clean
+
+cargo install cargo-packager --locked
+cargo build --release && cargo packager --release --formats app,dmg   # deb,appimage on Linux; nsis,wix on Windows
 ```
 
-Run `npm` commands from the repo root and `cargo` commands from `src-tauri/`. The first `cargo` build compiles Tauri and takes several minutes. Releases are cut by pushing a `v*` tag; `.github/workflows/release.yml` builds unsigned bundles for macOS (both arches), Linux and Windows as a draft release. Publishing that release triggers `.github/workflows/homebrew.yml`, which renders `Casks/slurmer.rb` for `shawonashraf/homebrew-tap` from `scripts/homebrew-cask.sh` (version plus per-arch dmg sha256) and pushes it over the `HOMEBREW_TAP_DEPLOY_KEY` secret. The cask in the tap is generated output: change the script, not the tap file.
+The first build compiles gpui and takes several minutes. On macOS gpui is built with `runtime_shaders`, so Xcode's separately downloaded Metal Toolchain is not needed. Linux builds need `libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libxcb1-dev libfontconfig1-dev libfreetype6-dev libvulkan-dev`.
+
+`.github/workflows/ci.yml` runs fmt, clippy, tests and a debug cargo-packager pass on macOS, Linux and Windows for every PR. Releases are cut by pushing a `v*` tag; `.github/workflows/release.yml` builds unsigned bundles with cargo-packager for macOS (both arches), Linux and Windows as a draft release. Publishing that release triggers `.github/workflows/homebrew.yml`, which renders `Casks/slurmer.rb` for `shawonashraf/homebrew-tap` from `scripts/homebrew-cask.sh` (version plus per-arch dmg sha256) and pushes it over the `HOMEBREW_TAP_DEPLOY_KEY` secret. The cask downloads `slurmer_<ver>_aarch64.dmg` / `slurmer_<ver>_x64.dmg`, which are cargo-packager's default names; keep them. The cask in the tap is generated output: change the script, not the tap file.
 
 ## Architecture
 
-**The Rust backend owns all non-visual logic; the frontend is a thin view over six Tauri commands.** Nothing in `src/` parses squeue output, reads files, or spawns processes.
-
-Backend (`src-tauri/src/`), one concern per module, all pure or path-parameterised so `cargo test` needs no cluster:
+One binary crate at the repo root. Backend modules (`src/`) are pure or path-parameterised so `cargo test` needs no cluster or display:
 
 - `slurm.rs`: `Job` (ten string fields), `SQUEUE_FORMAT`, `parse_squeue_output`, `shell_quote`, `build_ssh_args`.
-- `ssh_config.rs`: lists single-name `Host` aliases from `~/.ssh/config` with `HostName`/`User`, for the form's import dropdown. Duplicate aliases merge first-wins.
+- `ssh_config.rs`: lists single-name `Host` aliases from `~/.ssh/config` with `HostName`/`User`, for the form's import picker. Duplicate aliases merge first-wins.
 - `config.rs`: `Cluster`, `Selection` (`{"kind":"all"}` / `{"kind":"cluster","id":…}`), `ClustersFile` load/save/upsert/remove/find. Save is atomic (temp file + rename).
-- `fetch.rs`: spawns `ssh` with `tokio::process::Command::output()` (drains stdout and stderr concurrently). `fetch_jobs_with(program, …)` exists so tests can point it at a fake ssh shell script.
-- `commands.rs`: `AppState` (config path, `Mutex<ClustersFile>`, `Mutex<Option<String>>` load error) plus the commands `list_clusters`, `save_cluster`, `delete_cluster`, `set_selection`, `list_ssh_hosts`, `fetch_jobs`. Logic lives in testable `validate_input` / `apply_save` / `apply_delete` / `apply_selection`; the `#[tauri::command]` functions are one-line wrappers.
-- `lib.rs`: registers the commands and manages `AppState` at `<app_config_dir>/clusters.json` (on macOS `~/Library/Application Support/org.shawonashraf.slurmer/`).
+- `fetch.rs`: runs `ssh` with `std::process::Command::output()` (drains stdout and stderr concurrently). Synchronous; the UI calls it on gpui's background executor. `fetch_jobs_with(program, …)` exists so tests can point it at a fake ssh shell script.
+- `store.rs`: `AppState` (config path, `Mutex<ClustersFile>`, `Mutex<Option<String>>` load error), `validate_input` / `apply_save` / `apply_delete` / `apply_selection`, `list_ssh_hosts`.
+- `main.rs`: `config_path()` (`$SLURMER_CONFIG`, else `dirs::config_dir()/org.shawonashraf.slurmer/clusters.json`, the same path the old Tauri build used), key bindings, macOS menu, window (1100×680, min 900×500), quit on window close.
 
-Frontend (`src/`): `lib/api.ts` has the typed `invoke` wrappers and shared types; `lib/state.svelte.ts` exports the `app` singleton (Svelte 5 runes class) holding clusters, ssh hosts, selection, and per-cluster `jobs` / `errors` / `loading` / `fetched` maps keyed by cluster id, so switching clusters shows the last fetch without a new ssh call. `App.svelte` is the two-pane shell and owns the modal state; `MainPanel.svelte` decides which empty/error/table state to show; `JobTable.svelte` renders `Group[]` (from `lib/jobState.ts`, which also holds the state→badge colour map).
+UI (`src/ui/`):
+
+- `model.rs`: pure view rules with unit tests: `tone_for` (state → badge colour), `initial_selection`, `after_delete`, `Fetches` (per-cluster `jobs` / `errors` / `loading` / `fetched` keyed by cluster id, so switching clusters shows the last fetch without a new ssh call), `groups`, `body` (which empty/error/table state the main panel shows), `title` / `subtitle`.
+- `app_view.rs`: `SlurmerApp`, the root entity. Owns `AppState`, a mirror of the cluster list, `Fetches`, and the open `ClusterForm`. Does every store call. `refresh` spawns one background task per cluster.
+- `sidebar.rs`, `main_panel.rs`, `job_table.rs`: render functions over `&SlurmerApp`.
+- `cluster_form.rs`: modal entity. Only collects input and emits `FormEvent::{Save, Delete, Cancel}`; the root view calls the store and reports errors back with `set_error`. A new form entity is created on every open.
+- `text_input.rs`: single-line input adapted from gpui 0.2.2's `examples/input.rs` (IME, UTF-16 offsets, clipboard).
+- `widgets.rs` (button, badge, spinner, strip, mono text), `theme.rs` (light/dark tokens as a gpui `Global`, swapped on window appearance change), `assets.rs` (SVG icons from `assets/ui/` compiled in via `include_bytes!`).
 
 ### The ssh call
 
@@ -50,16 +55,16 @@ ssh [-o User=<user>] -- <host> squeue --noheader (-u '<user>' | --me) -o '<SQUEU
 
 ## Invariants to preserve
 
-- **Shell safety is two-layered.** Anything interpreted by the remote shell (`-u` value, format string) goes through `shell_quote`. The local argv is never run through a shell, and `--` separates options from the host so a `-`-prefixed host cannot become an ssh option; `validate_input` and the form's `canSave` both reject such hosts. Keep all three when touching `build_ssh_args` or the form.
+- **Shell safety is two-layered.** Anything interpreted by the remote shell (`-u` value, format string) goes through `shell_quote`. The local argv is never run through a shell, and `--` separates options from the host so a `-`-prefixed host cannot become an ssh option; `validate_input` and the form's `can_save` both reject such hosts. Keep all three when touching `build_ssh_args` or the form.
 - **A malformed `clusters.json` is never overwritten until the user saves a cluster.** While `load_error` is set, `apply_delete` refuses and `apply_selection` updates memory only; `apply_save` clears the error after writing. Tests assert the on-disk bytes stay untouched.
-- **No mutex guard across an `.await`.** `fetch_jobs` copies host/user out of the lock before awaiting.
-- **Command arguments are snake_case** (`#[tauri::command(rename_all = "snake_case")]`); `api.ts` passes `{ cluster_id }`, `{ input }`, etc. Keep both sides in step.
-- **Errors cross IPC as strings or `{ message }`**; `errorMessage()` in `api.ts` normalises both. Non-zero ssh exit reports trimmed stderr, or `ssh exited with status N`.
-- **Frontend is Svelte 5 runes only** (`$state`, `$derived`, `$props`), no stores, no component library, no Tailwind, no Tauri plugins. Styling is plain CSS on the tokens in `src/app.css` (light on `:root`, dark under `prefers-color-scheme: dark`). `ClusterForm.svelte` snapshots its `cluster` prop into `$state` on purpose; `App.svelte` remounts it on every open, so keep that `{#if formOpen}` pattern.
-- **Native `window.confirm`/`alert` do not render in the webview**; confirmations are in-app (see the two-step delete in the form).
+- **No config lock held while ssh runs.** `SlurmerApp::refresh` copies host/user out of the lock before spawning the background task.
+- **A fetch result for a cluster deleted mid-fetch is dropped** (`Fetches::finish` takes the known cluster list). A task whose window has closed ignores the failed `update`.
+- **Official gpui only.** `gpui = "0.2.2"` from crates.io, no component library (gpui-component and the `gpui-pre` snapshots were considered and rejected). Widgets are plain `div()` builders on the `Theme` tokens.
+- **The form never touches the store.** Keep store calls in `SlurmerApp` so validation and the malformed-file guard live in one place.
+- **Keep the config path.** Changing `APP_ID` or `config_path()` strands existing users' clusters.
 
 ## Testing conventions
 
-- Backend tests sit in each module's `#[cfg(test)] mod tests`, use `tempfile` for filesystem cases, and use generic fixtures only: never put personal hostnames or usernames in tests (`snellius` / `snellius_user` style is fine).
+- Tests sit in each module's `#[cfg(test)] mod tests`, use `tempfile` for filesystem cases, and use generic fixtures only: never put personal hostnames or usernames in tests (`snellius` / `snellius_user` style is fine).
 - `fetch.rs` tests are `#[cfg(all(test, unix))]` and drive real processes through a fake `ssh` script written to a temp dir; extend those rather than mocking.
-- There are no frontend unit tests by design; `npm run check` is the gate. The five-step manual flow (add via ssh import, refresh, rename, delete, relaunch) is the UI acceptance check.
+- View decisions belong in `ui/model.rs` with unit tests; gpui render code is not unit-tested. The five-step manual flow (add via ssh import, refresh, rename, delete, relaunch), run with `SLURMER_CONFIG` pointing at a scratch file, is the UI acceptance check.
