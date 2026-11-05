@@ -35,6 +35,7 @@ amendment wins:
 | Fetch | `fetch_jobs` is synchronous (`std::process::Command::output()`, which drains both pipes) and runs on gpui's background executor, one task per cluster. A result for a cluster deleted mid-fetch is dropped. |
 | Config dir | `dirs::config_dir()/org.shawonashraf.slurmer/clusters.json`, the path Tauri used. `SLURMER_CONFIG` overrides it for testing. |
 | Theme | The `app.css` tokens as Rust constants; light/dark follows the window appearance live. |
+| Shaders (macOS) | Release bundles ship precompiled Metal shaders (`--no-default-features`). The default `runtime-shaders` feature compiles them at startup for local builds without Xcode's Metal Toolchain. |
 | Packaging | `cargo-packager`: `.app`/`.dmg` (macOS, names unchanged for the Homebrew cask), `.deb`/`.AppImage` (Linux, no `.rpm`), NSIS/MSI (Windows). |
 | Tests | View rules are now covered by `cargo test`; the five-step manual flow remains the UI acceptance check. |
 

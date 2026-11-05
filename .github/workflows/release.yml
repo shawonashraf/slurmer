@@ -75,9 +75,14 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
+      - name: Install the Metal Toolchain
+        if: runner.os == 'macOS'
+        run: xcrun metal --version >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
+
       - run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
 
-      - run: cargo build --release --target ${{ matrix.target }}
+      # No runtime-shaders: macOS bundles ship precompiled Metal shaders.
+      - run: cargo build --release --no-default-features --target ${{ matrix.target }}
 
       - run: cargo packager --release --target ${{ matrix.target }} --formats ${{ matrix.formats }}
 
