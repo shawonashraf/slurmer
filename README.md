@@ -26,6 +26,16 @@ brew uninstall --cask slurmer   # remove the app, keep your saved clusters
 brew uninstall --zap --cask slurmer   # also delete clusters.json and caches
 ```
 
+### Fedora via COPR
+
+```bash
+sudo dnf copr enable shawonashraf/slurmer
+sudo dnf install slurmer
+```
+
+Built for Fedora 44, 45 and rawhide on x86_64 and aarch64. The command is
+`slurmer`, and the app shows up in your desktop's app list.
+
 ### Other platforms and manual installs
 
 Download a bundle from the [releases page](https://github.com/shawonashraf/slurmer/releases):
@@ -94,3 +104,9 @@ Bundles land in `target/release/`.
    pushes it to
    [shawonashraf/homebrew-tap](https://github.com/shawonashraf/homebrew-tap).
    The cask in the tap is generated output; change the script, not the tap.
+4. The tag push also pings COPR, which runs `.copr/Makefile` to build the
+   source RPM (crates vendored, version taken from `Cargo.toml`) and then
+   builds the Fedora RPMs. Add a `%changelog` entry to
+   `packaging/fedora/slurmer.spec` with the version bump. To test the RPM
+   locally: `packaging/fedora/make-srpm.sh /tmp/srpm`, then
+   `rpmbuild --rebuild /tmp/srpm/*.src.rpm` (or `mock`).

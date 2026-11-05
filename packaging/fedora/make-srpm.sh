@@ -29,8 +29,8 @@ git -C "$top" -c safe.directory='*' archive --format=tar.gz \
 
 (
     cd "$top"
-    cargo vendor --locked --versioned-dirs "$work/vendor-root/vendor" > /dev/null
-    cargo tree --locked --target all -e normal --prefix none --format '{p}: {l}' \
+    cargo vendor --quiet --locked --versioned-dirs "$work/vendor-root/vendor" > /dev/null
+    cargo tree --quiet --locked --target all -e normal --prefix none --format '{p}: {l}' \
         | grep -v "^$name " | sort -u > "$work/vendor-root/LICENSE.dependencies"
 )
 XZ_OPT=-T0 tar -C "$work/vendor-root" -cJf "$work/SOURCES/$name-$version-vendor.tar.xz" \
