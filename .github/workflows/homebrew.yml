@@ -38,16 +38,16 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
-            --pattern "slurmer_${VERSION}_aarch64.dmg" \
-            --pattern "slurmer_${VERSION}_x64.dmg"
+            --pattern "Slurmer_${VERSION}_aarch64.dmg" \
+            --pattern "Slurmer_${VERSION}_x64.dmg"
           ls -l dist
 
       - name: Render cask
         env:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
-          arm=$(sha256sum "dist/slurmer_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
-          intel=$(sha256sum "dist/slurmer_${VERSION}_x64.dmg" | cut -d' ' -f1)
+          arm=$(sha256sum "dist/Slurmer_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
+          intel=$(sha256sum "dist/Slurmer_${VERSION}_x64.dmg" | cut -d' ' -f1)
           scripts/homebrew-cask.sh "$VERSION" "$arm" "$intel" > slurmer.rb
           cat slurmer.rb
 

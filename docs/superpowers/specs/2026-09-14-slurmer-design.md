@@ -19,6 +19,25 @@ and support for multiple saved clusters.
 | Main view | Styled table, one row per job, colour-coded state badges, light/dark theme. |
 | Stack | Rust backend does all non-visual work. Svelte 5 + TypeScript + plain CSS frontend. |
 
+## Amendment 2026-11-05: native gpui UI
+
+The Tauri + Svelte frontend was replaced by a native [gpui](https://gpui.rs)
+UI (plan: `docs/superpowers/plans/2026-11-05-gpui-migration.md`). Behaviour,
+the ssh call, `clusters.json` and its location are unchanged. Where the
+sections below mention Tauri, Svelte, `invoke`, tokio or `npm`, this
+amendment wins:
+
+| Topic | Now |
+|---|---|
+| Stack | One Rust binary crate at the repo root. Official `gpui` 0.2.2 from crates.io, no component library; widgets (text input, buttons, badge, table) are hand-built in `src/ui/`. |
+| Layout | `src/` holds the backend modules plus `src/ui/`. `commands.rs` became `store.rs` (same functions, no Tauri wrappers). |
+| View logic | `src/ui/model.rs`: pure, unit-tested selection, fetch-result and empty-state rules that used to live in `state.svelte.ts` / `MainPanel.svelte`. |
+| Fetch | `fetch_jobs` is synchronous (`std::process::Command::output()`, which drains both pipes) and runs on gpui's background executor, one task per cluster. A result for a cluster deleted mid-fetch is dropped. |
+| Config dir | `dirs::config_dir()/org.shawonashraf.slurmer/clusters.json`, the path Tauri used. `SLURMER_CONFIG` overrides it for testing. |
+| Theme | The `app.css` tokens as Rust constants; light/dark follows the window appearance live. |
+| Packaging | `cargo-packager`: `.app`/`.dmg` (macOS, names unchanged for the Homebrew cask), `.deb`/`.AppImage` (Linux, no `.rpm`), NSIS/MSI (Windows). |
+| Tests | View rules are now covered by `cargo test`; the five-step manual flow remains the UI acceptance check. |
+
 ## Architecture
 
 Standard Tauri v2 layout: `src-tauri/` for Rust, `src/` for Svelte.

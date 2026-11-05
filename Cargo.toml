@@ -1,0 +1,56 @@
+[package]
+name = "slurmer"
+version = "0.1.0"
+description = "Slurm job tracker over ssh"
+authors = ["Shawon Ashraf"]
+license = "MIT"
+edition = "2021"
+
+# Capitalised executable and bundle name (Slurmer.app, Slurmer.exe). The
+# Debian package name is derived from product-name in kebab case, so it
+# stays `slurmer`.
+[[bin]]
+name = "Slurmer"
+path = "src/main.rs"
+
+[dependencies]
+gpui = "0.2.2"
+dirs = "6"
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+unicode-segmentation = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# Compile the Metal shaders when the app starts instead of at build time, so
+# building on macOS does not need Xcode's separately downloaded Metal Toolchain.
+[target.'cfg(target_os = "macos")'.dependencies]
+gpui = { version = "0.2.2", features = ["runtime_shaders"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
+
+# `cargo packager --release` bundles the already-built release binary.
+# Formats are chosen per platform on the command line (see release.yml).
+[package.metadata.packager]
+product-name = "Slurmer"
+identifier = "org.shawonashraf.slurmer"
+category = "DeveloperTool"
+publisher = "Shawon Ashraf"
+icons = [
+  "assets/icons/32x32.png",
+  "assets/icons/128x128.png",
+  "assets/icons/128x128@2x.png",
+  "assets/icons/icon.icns",
+  "assets/icons/icon.ico",
+]
+
+[package.metadata.packager.macos]
+minimum-system-version = "11.0"
