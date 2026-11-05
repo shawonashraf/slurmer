@@ -1,6 +1,6 @@
 [package]
 name = "slurmer"
-version = "0.2.0"
+version = "0.2.1"
 description = "Slurm job tracker over ssh"
 authors = ["Shawon Ashraf"]
 license = "MIT"

@@ -4943,7 +4943,7 @@ dependencies = [
 
 [[package]]
 name = "slurmer"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "dirs 6.0.0",
  "futures",

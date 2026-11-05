@@ -6,7 +6,7 @@
 %global debug_package %{nil}
 
 Name:           slurmer
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Slurm job tracker over ssh
 
@@ -81,5 +81,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/org.shawonashraf.slur
 %{_datadir}/icons/hicolor/*/apps/org.shawonashraf.slurmer.png
 
 %changelog
+* Thu Nov 05 2026 Shawon Ashraf <7804029+shawonashraf@users.noreply.github.com> - 0.2.1-1
+- Draw a title bar with window buttons on GNOME Wayland
+- Show the window title on Wayland
+
 * Thu Nov 05 2026 Shawon Ashraf <7804029+shawonashraf@users.noreply.github.com> - 0.2.0-1
 - First COPR package
