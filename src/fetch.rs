@@ -59,14 +59,41 @@ pub fn fetch_jobs_with(program: &str, host: &str, user: &str) -> Result<Vec<Job>
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+    use std::sync::{Mutex, MutexGuard};
 
-    /// Writes an executable shell script and returns its path.
-    fn fake_ssh(dir: &std::path::Path, body: &str) -> PathBuf {
+    /// Serialises the tests that write a script and then run it. Without it,
+    /// a test that spawns a process while another test is still writing its
+    /// script hands the open write handle to its child (fork copies every
+    /// fd until exec), and Linux then refuses to run that script with
+    /// ETXTBSY ("Text file busy").
+    static SPAWN: Mutex<()> = Mutex::new(());
+
+    /// An executable fake ssh script. Holds the spawn lock until dropped at
+    /// the end of the test.
+    struct FakeSsh {
+        path: PathBuf,
+        _serial: MutexGuard<'static, ()>,
+    }
+
+    impl std::ops::Deref for FakeSsh {
+        type Target = Path;
+        fn deref(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    /// Writes an executable shell script and returns it.
+    fn fake_ssh(dir: &Path, body: &str) -> FakeSsh {
+        // A failed test poisons the lock; the others should still run.
+        let serial = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
         let path = dir.join("fake-ssh");
         std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        path
+        FakeSsh {
+            path,
+            _serial: serial,
+        }
     }
 
     #[test]
