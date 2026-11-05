@@ -22,10 +22,13 @@ serde_json = "1"
 unicode-segmentation = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 
-# Compile the Metal shaders when the app starts instead of at build time, so
-# building on macOS does not need Xcode's separately downloaded Metal Toolchain.
-[target.'cfg(target_os = "macos")'.dependencies]
-gpui = { version = "0.2.2", features = ["runtime_shaders"] }
+[features]
+default = ["runtime-shaders"]
+# macOS only: compile gpui's Metal shaders when the app starts instead of at
+# build time, so local builds do not need Xcode's separately downloaded Metal
+# Toolchain. Release builds use --no-default-features and ship precompiled
+# shaders, so users never wait for a compile. No effect on Linux or Windows.
+runtime-shaders = ["gpui/runtime_shaders"]
 
 [dev-dependencies]
 tempfile = "3"

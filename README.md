@@ -78,7 +78,7 @@ instead of your real one.
 
 ```bash
 cargo install cargo-packager --locked
-cargo build --release
+cargo build --release --no-default-features   # macOS: precompiled shaders, needs Xcode's Metal Toolchain
 cargo packager --release --formats app,dmg      # macOS; deb,appimage on Linux; nsis,wix on Windows
 ```
 

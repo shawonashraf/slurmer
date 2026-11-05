@@ -50,3 +50,11 @@ jobs:
       - run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
       - run: cargo build
       - run: cargo packager --formats ${{ matrix.formats }}
+
+      # Release builds precompile the Metal shaders; check that path too.
+      - name: Install the Metal Toolchain
+        if: runner.os == 'macOS'
+        run: xcrun metal --version >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
+      - name: Build with precompiled shaders
+        if: runner.os == 'macOS'
+        run: cargo build --no-default-features

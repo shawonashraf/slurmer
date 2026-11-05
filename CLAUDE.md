@@ -18,10 +18,10 @@ cargo clippy --all-targets -- -D warnings   # must be warning-free
 cargo fmt --check                 # crate is kept rustfmt-clean
 
 cargo install cargo-packager --locked
-cargo build --release && cargo packager --release --formats app,dmg   # deb,appimage on Linux; nsis,wix on Windows
+cargo build --release --no-default-features && cargo packager --release --formats app,dmg   # deb,appimage on Linux; nsis,wix on Windows
 ```
 
-The first build compiles gpui and takes several minutes. On macOS gpui is built with `runtime_shaders`, so Xcode's separately downloaded Metal Toolchain is not needed. Linux builds need `libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libxcb1-dev libfontconfig1-dev libfreetype6-dev libvulkan-dev`.
+The first build compiles gpui and takes several minutes. On macOS the default `runtime-shaders` feature makes gpui compile its Metal shaders at app start (about 0.2 s on first launch, cached by macOS after), so local builds do not need Xcode's separately downloaded Metal Toolchain. Release builds use `--no-default-features` and precompile the shaders; building that way locally needs `xcodebuild -downloadComponent MetalToolchain`. Linux builds need `libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libx11-xcb-dev libxcb1-dev libfontconfig1-dev libfreetype6-dev libvulkan-dev`.
 
 `.github/workflows/ci.yml` runs fmt, clippy, tests and a debug cargo-packager pass on macOS, Linux and Windows for every PR. Releases are cut by pushing a `v*` tag; `.github/workflows/release.yml` builds unsigned bundles with cargo-packager for macOS (both arches), Linux and Windows as a draft release. Publishing that release triggers `.github/workflows/homebrew.yml`, which renders `Casks/slurmer.rb` for `shawonashraf/homebrew-tap` from `scripts/homebrew-cask.sh` (version plus per-arch dmg sha256) and pushes it over the `HOMEBREW_TAP_DEPLOY_KEY` secret. The cask downloads `Slurmer_<ver>_aarch64.dmg` / `Slurmer_<ver>_x64.dmg` and installs `Slurmer.app`; these come from `product-name = "Slurmer"` in `Cargo.toml`, so changing it means changing `scripts/homebrew-cask.sh` and `homebrew.yml` too. The executable is `Slurmer` (`[[bin]]`); the Debian package name stays lowercase `slurmer`. The cask in the tap is generated output: change the script, not the tap file.
 
