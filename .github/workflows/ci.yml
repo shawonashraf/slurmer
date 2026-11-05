@@ -1,0 +1,52 @@
+name: ci
+
+# Lint, test and package on every PR, on all three platforms, so a broken
+# Linux or Windows build shows up before a release tag is pushed.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_PACKAGER_VERSION: "0.11.8"
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            formats: app,dmg
+          - platform: ubuntu-22.04
+            formats: deb,appimage
+          - platform: windows-latest
+            formats: nsis,wix
+    runs-on: ${{ matrix.platform }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-xcb-dev libxcb1-dev libfontconfig1-dev libfreetype6-dev libvulkan-dev
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+      # Debug build is enough to prove the packaging config works here.
+      - run: cargo install cargo-packager --locked --version "$CARGO_PACKAGER_VERSION"
+      - run: cargo build
+      - run: cargo packager --formats ${{ matrix.formats }}
